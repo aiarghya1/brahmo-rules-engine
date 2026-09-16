@@ -26,6 +26,7 @@ from backend.pipeline.permission_compiler import CompiledPermissions
 
 # Statuses that mean "this node is no longer the current truth".
 DEAD_STATUSES = ("SUPERSEDED", "EXPIRED")
+ZONE_GLOBAL = 2
 
 # A check returns None to keep the node, or a reason string to drop it.
 CheckFn = Callable[[NodeFilterRow], Optional[str]]
@@ -79,6 +80,8 @@ def _check_permission(
 ) -> Tuple[str, str, CheckFn]:
     def check(node: NodeFilterRow) -> Optional[str]:
         if permissions.can_read(node.hierarchy_level):
+            return None
+        if permissions.zone2_bypasses_ceiling and node.zone == ZONE_GLOBAL:
             return None
         # Optional policy (off by default, see architecture.md "Check 3"):
         # treat own-department ancestors of the entry point as inherited.
