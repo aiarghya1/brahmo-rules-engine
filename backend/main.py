@@ -22,9 +22,12 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Any localhost port during development; set CORS_ORIGINS to pin it down.
+_explicit_origins = [o for o in os.environ.get("CORS_ORIGINS", "").split(",") if o]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_explicit_origins,
+    allow_origin_regex=None if _explicit_origins else r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],
