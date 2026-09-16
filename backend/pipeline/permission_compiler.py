@@ -26,6 +26,13 @@ MAX_LEVEL = 15
 _READ_ALL_ROLES = frozenset({"HOD", "ADMIN"})
 _WRITE_ALL_ROLES = frozenset({"ADMIN"})
 
+# Compliance tags a role carries implicitly, but ONLY for nodes belonging to
+# that user's own department. An HOD authored their own department's budget, so
+# blocking them from it is wrong; a different department's budget stays blocked.
+_ROLE_SCOPED_CLEARANCE: Dict[str, FrozenSet[str]] = {
+    "HOD": frozenset({"MNPI"}),
+}
+
 
 @dataclass(frozen=True)
 class LevelPermission:
@@ -45,6 +52,7 @@ class CompiledPermissions:
     write_ceiling: Optional[int]
     levels: Dict[int, LevelPermission]
     blocked_tags: FrozenSet[str]
+    scoped_clearance: FrozenSet[str]
     cleared_tags: FrozenSet[str]
 
     # -- O(1) lookups ----------------------------------------------------
@@ -62,7 +70,10 @@ class CompiledPermissions:
         """Which of ``tags`` this user is NOT cleared for. Empty list = allowed."""
         if not tags:
             return []
-        return [tag for tag in tags if tag not in self.cleared_tags]
+        cleared = self.cleared_tags
+        if node_department is not None and node_department == self.department:
+            cleared = cleared | self.scoped_clearance
+        return [tag for tag in tags if tag not in cleared]
 
     def to_dict(self) -> dict:
         return {
@@ -73,6 +84,7 @@ class CompiledPermissions:
             "readable_levels": [lv for lv, p in sorted(self.levels.items()) if p.can_read],
             "writable_levels": [lv for lv, p in sorted(self.levels.items()) if p.can_write],
             "cleared_tags": sorted(self.cleared_tags),
+            "scoped_clearance": sorted(self.scoped_clearance),
             "blocked_tags": sorted(self.blocked_tags),
         }
 
@@ -99,6 +111,7 @@ def compile_permissions(user: User, max_level: int = MAX_LEVEL) -> CompiledPermi
     }
 
     cleared = frozenset(user.compliance_clearance or ())
+    scoped = _ROLE_SCOPED_CLEARANCE.get(user.role, frozenset())
     blocked = frozenset(ALL_COMPLIANCE_TAGS) - cleared
 
     return CompiledPermissions(
@@ -110,5 +123,6 @@ def compile_permissions(user: User, max_level: int = MAX_LEVEL) -> CompiledPermi
         write_ceiling=user.write_ceiling,
         levels=levels,
         blocked_tags=blocked,
+        scoped_clearance=scoped,
         cleared_tags=cleared,
     )
