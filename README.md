@@ -27,7 +27,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r backend/requirements.txt
 
 python -m backend.verify          # prints the acceptance table for all 7 users
-pytest backend/tests -q           # 65 tests
+pytest backend/tests -q           # 67 tests
 uvicorn backend.main:app --reload --port 8000
 ```
 
@@ -192,33 +192,96 @@ not exist from where they are standing.
 
 ---
 
+## Deployment
+
+Two Vercel projects are live. **The UI is the first one** — the backend URL
+serves JSON only and will look broken in a browser.
+
+| | URL | serves |
+|---|---|---|
+| UI | https://brahmo-rules-engine-live-07c4.vercel.app | the Next.js app — start here |
+| API | https://backend-live-07c4.vercel.app | FastAPI; every route returns JSON |
+
+The root `vercel.json` uses Vercel's `services` preset to build the Next.js
+frontend and the FastAPI backend from this one repo. `backend/` also deploys
+standalone as its own project, and that standalone API is what the deployed UI
+calls.
+
+```bash
+vercel deploy --prod --project brahmo-rules-engine   # UI, from the repo root
+cd backend && vercel deploy --prod                   # the standalone API
+```
+
+### Two settings the deployment will not work without
+
+**`NEXT_PUBLIC_API_URL`** must be set on the *frontend* project for Production
+and Preview, pointing at the API. Next.js inlines `NEXT_PUBLIC_*` at build time,
+so setting the variable is not enough on its own — the project has to be
+redeployed before the change reaches the browser. Unset, the client falls back
+to `http://localhost:8000` and every fetch hits the *visitor's* machine.
+
+**Vercel Authentication must be off** on the frontend project. While it is on,
+anonymous visitors are redirected to a Vercel login instead of the app, so the
+UI looks like it was never deployed even though it builds and renders fine:
+
+```bash
+vercel project protection brahmo-rules-engine               # show current state
+vercel project protection disable --sso brahmo-rules-engine
+```
+
+`SUPABASE_URL` / `SUPABASE_KEY` stay optional in production exactly as they are
+locally: unset, or left at their `your_…` placeholders, the deployed API parses
+the bundled seed. `GET /api/health` reports which backend is live. Set
+`CORS_ORIGINS` to pin the API's allowed origins; unset means any origin.
+
+One Vercel detail worth knowing: the per-build URLs (`…-<hash>-….vercel.app`)
+are immutable and permanently serve the build that created them. Promoting a new
+deployment moves the aliases above, not those. Always test the alias.
+
+---
+
 ## Layout
 
 ```
 backend/
   pipeline/      permission_compiler · entry_point_resolver · bfs_traversal
                  zone2_injector · five_check_filter · candidate_assembler · engine
-  data/          repository (Supabase | local seed) · sql_seed_parser
+  data/          repository (Supabase | local seed) · sql_seed_parser · seed.sql
   models/        user · node · candidate_set
-  tests/         65 tests
+  tests/         67 tests
+  api/index.py   Vercel entrypoint
   main.py        FastAPI
   verify.py      the acceptance table above
-frontend/src/    Next.js 16 · React 19 · Tailwind 4
+frontend/
+  src/           Next.js 16 · React 19 · Tailwind 4
+  src/__tests__/ 37 component tests (Vitest)
+  e2e/           23 browser specs (Playwright)
 supabase/        schema.sql · seed.sql
 docs/            architecture.md
+vercel.json      Vercel `services` preset — builds frontend and backend together
 ```
+
+`backend/data/seed.sql` is a byte-identical copy of `supabase/seed.sql`, vendored
+so the standalone backend deployment has the seed inside its own bundle. The two
+must stay in sync; `supabase/seed.sql` is the original.
 
 ## Tests
 
 ```bash
-pytest backend/tests -q     # 65 passed
+pytest backend/tests -q            # 67 passed
+cd frontend && npm run test:unit   # 37 passed — Vitest + Testing Library
+cd frontend && npm run test:e2e    # 23 passed — Playwright
 ```
 
-They cover the guarantees rather than the implementation: upward traversal,
-department-scoped descent, multi-parent processed exactly once, each check's
-responsibility, the sequential contract (an excluded node is never evaluated
-again), monotonic funnels for all seven users, determinism, and that content is
-fetched **only** for nodes that survived all five checks.
+`npm test` in `frontend/` runs both JS suites. The Playwright config starts
+uvicorn on 8000 and Next on 3001 itself, reusing them if they are already up, so
+the e2e run needs no separate terminal.
+
+The backend tests cover the guarantees rather than the implementation: upward
+traversal, department-scoped descent, multi-parent processed exactly once,
+each check's responsibility, the sequential contract (an excluded node is never
+evaluated again), monotonic funnels for all seven users, determinism, and that
+content is fetched **only** for nodes that survived all five checks.
 
 Two suites guard the edges of the system:
 
