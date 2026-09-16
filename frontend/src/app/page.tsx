@@ -85,6 +85,7 @@ export default function Home() {
 
       {result && (
         <>
+          <StageCards result={result} />
           <FilterFunnel result={result} />
           <TimingPanel result={result} />
 
@@ -100,3 +101,39 @@ export default function Home() {
   );
 }
 
+function StageCards({ result }: { result: PipelineResult }) {
+  const { funnel } = result;
+  const cards = [
+    { label: "TOTAL", value: funnel.total_nodes, sub: "nodes in graph" },
+    { label: "BFS", value: funnel.after_bfs, sub: "reachable" },
+    { label: "+ZONE 2", value: funnel.after_zone2, sub: "combined" },
+    { label: "5-CHECK", value: funnel.candidate_set, sub: "candidate set", accent: true },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {cards.map((card, i) => (
+        <div
+          key={card.label}
+          className={`relative rounded-lg border p-4 ${
+            card.accent
+              ? "border-emerald-500/40 bg-emerald-500/5"
+              : "border-zinc-800 bg-zinc-900/40"
+          }`}
+        >
+          <div className="text-[10px] uppercase tracking-widest text-zinc-500">{card.label}</div>
+          <div
+            className={`mt-1 font-mono text-3xl ${card.accent ? "text-emerald-300" : "text-zinc-100"}`}
+          >
+            {card.value}
+          </div>
+          <div className="text-[11px] text-zinc-600">{card.sub}</div>
+          {i < cards.length - 1 && (
+            <span className="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-zinc-700 sm:block">
+              →
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
