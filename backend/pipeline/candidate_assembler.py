@@ -19,6 +19,7 @@ def assemble(
     content_by_id: Dict[str, KnowledgeNode],
     max_candidates: int,
 ) -> List[CandidateNode]:
+    injected = set(injected_ids)
     candidates: List[CandidateNode] = []
 
     for row in survivors:
@@ -37,6 +38,7 @@ def assemble(
                 department=row.department,
                 distance_from_entry=distance,
                 compression_hint=compression_hint_for(distance),
+                reached_via="ZONE_2_INJECTION" if row.id in injected else "BFS",
             )
         )
 
