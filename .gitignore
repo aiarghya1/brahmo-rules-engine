@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Secrets — never commit
+.env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
