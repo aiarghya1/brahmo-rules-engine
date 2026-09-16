@@ -9,7 +9,7 @@ from that distance (near = verbatim, far = the constraint only).
 """
 from typing import Dict, List, Sequence
 
-from backend.models.candidate_set import CandidateNode
+from backend.models.candidate_set import CandidateNode, compression_hint_for
 from backend.models.node import KnowledgeNode, NodeFilterRow
 
 def assemble(
@@ -36,6 +36,7 @@ def assemble(
                 hierarchy_level_id=row.hierarchy_level_id,
                 department=row.department,
                 distance_from_entry=distance,
+                compression_hint=compression_hint_for(distance),
             )
         )
 

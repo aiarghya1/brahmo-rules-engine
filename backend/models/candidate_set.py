@@ -2,6 +2,21 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+# distance from the user's entry point -> how much of the node survives
+# downstream compression. Set by the Candidate Set Assembler, consumed by the
+# (out of scope) Composition Agent.
+COMPRESSION_FULL = "FULL"
+COMPRESSION_COMPRESSED = "COMPRESSED"
+COMPRESSION_CONSTRAINT_ONLY = "CONSTRAINT_ONLY"
+
+
+def compression_hint_for(distance: int) -> str:
+    if distance <= 1:
+        return COMPRESSION_FULL
+    if distance == 2:
+        return COMPRESSION_COMPRESSED
+    return COMPRESSION_CONSTRAINT_ONLY
+
 
 @dataclass
 class CandidateNode:
@@ -15,6 +30,7 @@ class CandidateNode:
     hierarchy_level_id: str
     department: Optional[str]
     distance_from_entry: int
+    compression_hint: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -28,6 +44,7 @@ class CandidateNode:
             "hierarchy_level_id": self.hierarchy_level_id,
             "department": self.department,
             "distance_from_entry": self.distance_from_entry,
+            "compression_hint": self.compression_hint,
         }
 
 
