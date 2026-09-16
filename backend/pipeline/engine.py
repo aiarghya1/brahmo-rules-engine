@@ -92,7 +92,7 @@ def run_pipeline(
             injection.node_distance,
             injection.injected_ids,
             content,
-            50,  # TODO: read from org config
+            org.max_candidate_set,
         ),
     )
 
