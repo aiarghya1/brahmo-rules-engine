@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Dict, FrozenSet, List, Optional, Sequence, Tuple
 
-from backend.models.candidate_set import StageResult
+from backend.models.candidate_set import Exclusion, StageResult
 from backend.models.node import NodeFilterRow
 from backend.pipeline.permission_compiler import CompiledPermissions
 
@@ -164,10 +164,15 @@ def run_five_checks(
     for name, sql, check in checks:
         started = time.perf_counter()
         survivors: List[NodeFilterRow] = []
+        excluded: List[Exclusion] = []
         for node in current:
             reason = check(node)
             if reason is None:
                 survivors.append(node)
+            else:
+                excluded.append(
+                    Exclusion(node_id=node.id, title=node.title, stage=name, reason=reason)
+                )
         elapsed = (time.perf_counter() - started) * 1000.0
         stages.append(
             StageResult(
@@ -177,6 +182,7 @@ def run_five_checks(
                 count_out=len(survivors),
                 duration_ms=elapsed,
                 sql=sql,
+                excluded=excluded,
             )
         )
         # THE sequential contract: next check sees only what survived this one.
