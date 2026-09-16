@@ -5,7 +5,12 @@ from typing import Any, Dict, List, Optional
 
 @dataclass
 class Exclusion:
-    """Why a node that entered the pipeline did not make the candidate set."""
+    """Why a node that entered the pipeline did not make the candidate set.
+
+    Kept server-side for the audit trail and the demo UI. It is NEVER surfaced
+    to the end user as an error — exclusion is silent by design (a user must not
+    learn that a node they cannot read exists).
+    """
 
     node_id: str
     title: str
