@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { PipelineResult, Stage } from "@/lib/types";
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function FilterFunnel({ result }: Props) {
+  const [open, setOpen] = useState<string | null>(null);
   const { funnel, stages, traversal } = result;
   const total = funnel.total_nodes;
 
@@ -46,9 +48,14 @@ export function FilterFunnel({ result }: Props) {
       <div className="space-y-2">
         {rows.map((row) => {
           const pct = total ? (row.count / total) * 100 : 0;
+          const isOpen = open === row.key;
           return (
             <div key={row.key}>
-              <div className="group flex w-full items-center gap-3 text-left">
+              <button
+                onClick={() => setOpen(isOpen ? null : row.key)}
+                className="group flex w-full items-center gap-3 text-left"
+                disabled={!row.stage}
+              >
                 <span className="w-44 shrink-0 font-mono text-xs text-zinc-400 group-hover:text-zinc-200">
                   {row.label}
                 </span>
@@ -64,15 +71,33 @@ export function FilterFunnel({ result }: Props) {
                 <span className="hidden w-64 shrink-0 text-right text-[11px] text-zinc-500 lg:block">
                   {row.note}
                 </span>
-              </div>
+              </button>
 
+              {isOpen && row.stage && (
+                <div className="ml-44 mt-2 rounded border border-zinc-800 bg-zinc-950/60 p-3">
+                  <code className="block text-[11px] text-emerald-300">{row.stage.sql}</code>
+                  {row.stage.excluded.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {row.stage.excluded.map((e) => (
+                        <li key={e.node_id} className="text-[11px] text-zinc-400">
+                          <span className="font-mono text-rose-400">{e.node_id}</span>{" "}
+                          <span className="text-zinc-500">{e.title}</span> — {e.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-zinc-600">nothing excluded at this check</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
       <p className="mt-4 text-[11px] text-zinc-600">
-        Each bar is the number of nodes still standing after that stage.
+        Click a check to see its SQL predicate and the nodes it silently removed.
+        Exclusions are never surfaced to the end user — they are audit data.
       </p>
     </section>
   );
