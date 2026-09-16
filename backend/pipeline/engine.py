@@ -8,6 +8,7 @@ debugging nicety.
 """
 import os
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -126,6 +127,10 @@ def run_pipeline(
         timing["check{}_{}_ms".format(index, stage.name)] = round(stage.duration_ms, 3)
     timing["total_ms"] = round(clock.total_ms, 3)
 
+    type_counts = Counter(c.type for c in candidates)
+    dept_counts = Counter(c.department or "hospital-wide" for c in candidates)
+    hint_counts = Counter(c.compression_hint for c in candidates)
+
     excluded_all = [e.to_dict() for stage in outcome.stages for e in stage.excluded]
     unreachable = sorted(
         {n.id for n in all_nodes} - injection.node_ids
@@ -149,6 +154,11 @@ def run_pipeline(
         "stages": [stage.to_dict() for stage in outcome.stages],
         "excluded": excluded_all,
         "unreachable_node_ids": unreachable,
+        "distribution": {
+            "by_type": dict(type_counts),
+            "by_department": dict(dept_counts),
+            "by_compression_hint": dict(hint_counts),
+        },
         "llm_calls": 0,
         "policy": {
             "zone2_bypasses_ceiling": permissions.zone2_bypasses_ceiling,
