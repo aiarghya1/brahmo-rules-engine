@@ -36,6 +36,7 @@ class TraversalResult:
     level_distance: Dict[str, int]          # level_id -> hops from entry
     node_ids: Set[str] = field(default_factory=set)
     node_distance: Dict[str, int] = field(default_factory=dict)
+    visit_order: List[str] = field(default_factory=list)
 
     @property
     def max_distance(self) -> int:
@@ -45,6 +46,7 @@ class TraversalResult:
         return {
             "entry_level_id": self.entry_level_id,
             "reached_levels": self.level_distance,
+            "visit_order": self.visit_order,
             "reachable_node_count": len(self.node_ids),
             "max_distance": self.max_distance,
         }
@@ -66,10 +68,12 @@ def traverse(
 
     distance: Dict[str, int] = {entry.level.id: 0}
     visited: Set[str] = {entry.level.id}
+    visit_order: List[str] = []
 
     queue: deque = deque([(entry.level.id, 0)])
     while queue:
         level_id, dist = queue.popleft()
+        visit_order.append(level_id)
         level = levels_by_id[level_id]
 
         neighbours: List[str] = []
@@ -100,4 +104,5 @@ def traverse(
         level_distance=distance,
         node_ids=node_ids,
         node_distance=node_distance,
+        visit_order=visit_order,
     )
