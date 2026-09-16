@@ -4,6 +4,24 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class Exclusion:
+    """Why a node that entered the pipeline did not make the candidate set."""
+
+    node_id: str
+    title: str
+    stage: str
+    reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "node_id": self.node_id,
+            "title": self.title,
+            "stage": self.stage,
+            "reason": self.reason,
+        }
+
+
+@dataclass
 class StageResult:
     name: str
     label: str
@@ -11,6 +29,7 @@ class StageResult:
     count_out: int
     duration_ms: float
     sql: str = ""
+    excluded: List[Exclusion] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -21,4 +40,5 @@ class StageResult:
             "removed": self.count_in - self.count_out,
             "duration_ms": round(self.duration_ms, 3),
             "sql": self.sql,
+            "excluded": [e.to_dict() for e in self.excluded],
         }
