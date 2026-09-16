@@ -111,3 +111,7 @@ CREATE INDEX idx_edges_source ON edges(source_id);
 CREATE INDEX idx_edges_target ON edges(target_id);
 CREATE INDEX idx_hierarchy_org ON hierarchy_levels(org_id);
 CREATE INDEX idx_hierarchy_parent ON hierarchy_levels USING GIN(parent_ids);
+
+-- Composite index serving the 5-check filter as a single indexed predicate
+-- (org + status + derivability are the three highest-selectivity columns).
+CREATE INDEX idx_nodes_pipeline ON knowledge_nodes(org_id, status, derivability_score);
