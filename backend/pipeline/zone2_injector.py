@@ -24,6 +24,7 @@ ZONE_GLOBAL = 2
 @dataclass
 class InjectionResult:
     node_ids: Set[str]
+    node_distance: Dict[str, int]
     injected_ids: List[str]
     already_reachable_ids: List[str]
 
@@ -39,8 +40,11 @@ def inject_zone2(
     traversal: TraversalResult, nodes: Sequence[NodeFilterRow]
 ) -> InjectionResult:
     node_ids = set(traversal.node_ids)
+    node_distance = dict(traversal.node_distance)
     injected: List[str] = []
     already: List[str] = []
+
+    global_distance = traversal.max_distance
 
     for node in nodes:
         if node.zone != ZONE_GLOBAL:
@@ -50,10 +54,12 @@ def inject_zone2(
             already.append(node.id)
             continue
         node_ids.add(node.id)
+        node_distance[node.id] = global_distance
         injected.append(node.id)
 
     return InjectionResult(
         node_ids=node_ids,
+        node_distance=node_distance,
         injected_ids=sorted(injected),
         already_reachable_ids=sorted(already),
     )
