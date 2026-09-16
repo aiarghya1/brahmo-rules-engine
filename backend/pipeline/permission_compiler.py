@@ -54,6 +54,7 @@ class CompiledPermissions:
     blocked_tags: FrozenSet[str]
     scoped_clearance: FrozenSet[str]
     cleared_tags: FrozenSet[str]
+    zone2_bypasses_ceiling: bool = True
 
     # -- O(1) lookups ----------------------------------------------------
     def can_read(self, level_number: int) -> bool:
@@ -86,10 +87,13 @@ class CompiledPermissions:
             "cleared_tags": sorted(self.cleared_tags),
             "scoped_clearance": sorted(self.scoped_clearance),
             "blocked_tags": sorted(self.blocked_tags),
+            "zone2_bypasses_ceiling": self.zone2_bypasses_ceiling,
         }
 
 
-def compile_permissions(user: User, max_level: int = MAX_LEVEL) -> CompiledPermissions:
+def compile_permissions(
+    user: User, zone2_bypasses_ceiling: bool = True, max_level: int = MAX_LEVEL
+) -> CompiledPermissions:
     """Compile a user into a {level: {can_read, can_write}} lookup. O(15)."""
     read_floor = 1 if user.role in _READ_ALL_ROLES else user.ceiling_level
 
@@ -125,4 +129,5 @@ def compile_permissions(user: User, max_level: int = MAX_LEVEL) -> CompiledPermi
         blocked_tags=blocked,
         scoped_clearance=scoped,
         cleared_tags=cleared,
+        zone2_bypasses_ceiling=zone2_bypasses_ceiling,
     )
