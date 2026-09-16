@@ -11,6 +11,8 @@ Rule:
                                            -> enters at L10 Ortho Ward
        Dr. Vikram   (ortho, ceiling 4)  -> every ortho level qualifies
                                            -> enters at L5 Orthopaedics Dept
+  4. No level maps to the department (admin, quality, pharmacy) -> the user is
+     cross-departmental: enter at the org root and let the ceiling do the work.
 """
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
@@ -36,6 +38,13 @@ class EntryPoint:
         }
 
 
+def _root(levels: Sequence[HierarchyLevel]) -> HierarchyLevel:
+    roots = [lvl for lvl in levels if not lvl.parent_ids]
+    if roots:
+        return min(roots, key=lambda lvl: lvl.level_number)
+    return min(levels, key=lambda lvl: lvl.level_number)
+
+
 def resolve_entry_point(
     permissions: CompiledPermissions, levels: Sequence[HierarchyLevel]
 ) -> EntryPoint:
@@ -46,14 +55,19 @@ def resolve_entry_point(
     dept_levels: List[HierarchyLevel] = [
         lvl for lvl in levels if lvl.department == department
     ]
-    if not dept_levels:
-        raise KeyError("no hierarchy level for department '{}'".format(department))
+    if dept_levels:
+        readable = [lvl for lvl in dept_levels if permissions.can_read(lvl.level_number)]
+        pool = readable or dept_levels
+        entry = min(pool, key=lambda lvl: (lvl.level_number, lvl.id))
+        return EntryPoint(
+            level=entry,
+            strategy="DEPARTMENT_LEVEL",
+            department_scope=department,
+        )
 
-    readable = [lvl for lvl in dept_levels if permissions.can_read(lvl.level_number)]
-    pool = readable or dept_levels
-    entry = min(pool, key=lambda lvl: (lvl.level_number, lvl.id))
+    root = _root(levels)
     return EntryPoint(
-        level=entry,
-        strategy="DEPARTMENT_LEVEL",
-        department_scope=department,
+        level=root,
+        strategy="ORG_ROOT",
+        department_scope=None,
     )
