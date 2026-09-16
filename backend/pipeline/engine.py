@@ -127,6 +127,10 @@ def run_pipeline(
     timing["total_ms"] = round(clock.total_ms, 3)
 
     excluded_all = [e.to_dict() for stage in outcome.stages for e in stage.excluded]
+    unreachable = sorted(
+        {n.id for n in all_nodes} - injection.node_ids
+    )
+
     return {
         "user": user.id,
         "user_name": user.name,
@@ -144,6 +148,7 @@ def run_pipeline(
         "funnel": funnel,
         "stages": [stage.to_dict() for stage in outcome.stages],
         "excluded": excluded_all,
+        "unreachable_node_ids": unreachable,
         "llm_calls": 0,
         "policy": {
             "zone2_bypasses_ceiling": permissions.zone2_bypasses_ceiling,
