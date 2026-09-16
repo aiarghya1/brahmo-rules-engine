@@ -26,6 +26,7 @@ class EntryPoint:
     level: HierarchyLevel
     strategy: str
     department_scope: Optional[str]  # None = may descend into every department
+    reason: str
 
     def to_dict(self) -> dict:
         return {
@@ -35,6 +36,7 @@ class EntryPoint:
             "department": self.level.department,
             "strategy": self.strategy,
             "department_scope": self.department_scope,
+            "reason": self.reason,
         }
 
 
@@ -55,6 +57,7 @@ def resolve_entry_point(
     dept_levels: List[HierarchyLevel] = [
         lvl for lvl in levels if lvl.department == department
     ]
+
     if dept_levels:
         readable = [lvl for lvl in dept_levels if permissions.can_read(lvl.level_number)]
         pool = readable or dept_levels
@@ -63,6 +66,11 @@ def resolve_entry_point(
             level=entry,
             strategy="DEPARTMENT_LEVEL",
             department_scope=department,
+            reason=(
+                "shallowest '{}' level this user may read (ceiling L{})".format(
+                    department, permissions.ceiling_level
+                )
+            ),
         )
 
     root = _root(levels)
@@ -70,4 +78,8 @@ def resolve_entry_point(
         level=root,
         strategy="ORG_ROOT",
         department_scope=None,
+        reason=(
+            "department '{}' has no hierarchy level — cross-departmental user, "
+            "enters at the org root with an unscoped descent".format(department)
+        ),
     )
