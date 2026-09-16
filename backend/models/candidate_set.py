@@ -31,6 +31,7 @@ class CandidateNode:
     department: Optional[str]
     distance_from_entry: int
     compression_hint: str
+    reached_via: str  # "BFS" | "ZONE_2_INJECTION"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -45,6 +46,7 @@ class CandidateNode:
             "department": self.department,
             "distance_from_entry": self.distance_from_entry,
             "compression_hint": self.compression_hint,
+            "reached_via": self.reached_via,
         }
 
 
