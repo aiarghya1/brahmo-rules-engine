@@ -10,6 +10,7 @@ class StageResult:
     count_in: int
     count_out: int
     duration_ms: float
+    sql: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -19,4 +20,5 @@ class StageResult:
             "count_out": self.count_out,
             "removed": self.count_in - self.count_out,
             "duration_ms": round(self.duration_ms, 3),
+            "sql": self.sql,
         }
