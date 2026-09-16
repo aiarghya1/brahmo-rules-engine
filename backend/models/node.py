@@ -1,4 +1,15 @@
-"""Domain models for the knowledge graph."""
+"""Domain models for the knowledge graph.
+
+Two deliberately separate node representations:
+
+* ``NodeFilterRow``  — only the columns the 5-check filter needs. This is what
+  the pipeline loads. It contains NO content.
+* ``KnowledgeNode``  — the full row including ``content``. Only fetched for the
+  nodes that SURVIVE all five checks.
+
+That split is the point of GAP 5 ("permission before retrieval"): a node the
+user may not read never has its content loaded into process memory at all.
+"""
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
@@ -17,6 +28,25 @@ class HierarchyLevel:
     department: Optional[str]
     parent_ids: List[str] = field(default_factory=list)
     zone: int = 1
+
+
+@dataclass(frozen=True)
+class NodeFilterRow:
+    """The filter-relevant projection of a knowledge node (no content)."""
+
+    id: str
+    org_id: str
+    hierarchy_level_id: str
+    hierarchy_level: int
+    department: Optional[str]
+    type: str
+    importance: float
+    zone: int
+    status: str
+    derivability_score: float
+    compliance_tags: List[str] = field(default_factory=list)
+    valid_until: Optional[datetime] = None
+    title: str = ""
 
 
 @dataclass(frozen=True)

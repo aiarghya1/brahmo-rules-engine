@@ -5,12 +5,25 @@ Two interchangeable backends behind one interface:
 * ``SupabaseRepository`` — the real thing (PostgREST over Postgres + RLS).
 * ``LocalSeedRepository`` — parses ``supabase/seed.sql`` into memory so the
   pipeline runs with no credentials and no network.
+
+Both expose the same two-phase access pattern:
+
+    load_filter_index()   -> filter columns only, NO content   (cheap, always)
+    fetch_content(ids)    -> content for survivors only        (after check 5)
+
+Content is never loaded for a node the user is not allowed to read.
 """
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from backend.models.node import Edge, HierarchyLevel, KnowledgeNode
+from backend.models.node import Edge, HierarchyLevel, KnowledgeNode, NodeFilterRow
 from backend.models.user import Organization, User
+
+FILTER_COLUMNS = (
+    "id,org_id,hierarchy_level_id,type,title,importance,zone,status,"
+    "derivability_score,compliance_tags,valid_until,department"
+)
 
 
 def _parse_ts(value: Any) -> Optional[datetime]:
@@ -44,6 +57,24 @@ class BaseRepository:
             department=row.get("department"),
             parent_ids=list(row.get("parent_ids") or []),
             zone=int(row.get("zone") or 1),
+        )
+
+    def _to_filter_row(self, row: Dict[str, Any]) -> NodeFilterRow:
+        level = self._levels_by_id[row["hierarchy_level_id"]]
+        return NodeFilterRow(
+            id=row["id"],
+            org_id=row["org_id"],
+            hierarchy_level_id=row["hierarchy_level_id"],
+            hierarchy_level=level.level_number,
+            department=row.get("department"),
+            type=row["type"],
+            importance=float(row["importance"]),
+            zone=int(row["zone"]),
+            status=row["status"],
+            derivability_score=float(row["derivability_score"]),
+            compliance_tags=list(row.get("compliance_tags") or []),
+            valid_until=_parse_ts(row.get("valid_until")),
+            title=row.get("title", ""),
         )
 
     def _to_node(self, row: Dict[str, Any]) -> KnowledgeNode:
@@ -118,13 +149,19 @@ class LocalSeedRepository(BaseRepository):
     def list_levels(self, org_id: str) -> List[HierarchyLevel]:
         return [lvl for lvl in self._levels_by_id.values() if lvl.org_id == org_id]
 
-    def load_nodes(self, org_id: str) -> List[KnowledgeNode]:
+    def load_filter_index(self, org_id: str) -> List[NodeFilterRow]:
         return [
-            self._to_node(row) for row in self._node_rows.values() if row["org_id"] == org_id
+            self._to_filter_row(row)
+            for row in self._node_rows.values()
+            if row["org_id"] == org_id
         ]
 
     def count_nodes(self, org_id: str) -> int:
         return sum(1 for row in self._node_rows.values() if row["org_id"] == org_id)
+
+    def fetch_content(self, node_ids: Iterable[str]) -> Dict[str, KnowledgeNode]:
+        wanted = list(node_ids)
+        return {nid: self._to_node(self._node_rows[nid]) for nid in wanted if nid in self._node_rows}
 
     def list_edges(self) -> List[Edge]:
         return [
@@ -184,12 +221,15 @@ class SupabaseRepository(BaseRepository):
     def list_levels(self, org_id: str) -> List[HierarchyLevel]:
         return list(self._levels(org_id).values())
 
-    def load_nodes(self, org_id: str) -> List[KnowledgeNode]:
+    def load_filter_index(self, org_id: str) -> List[NodeFilterRow]:
         self._levels(org_id)
         res = (
-            self._client.table("knowledge_nodes").select("*").eq("org_id", org_id).execute()
+            self._client.table("knowledge_nodes")
+            .select(FILTER_COLUMNS)  # NOTE: 'content' is deliberately absent
+            .eq("org_id", org_id)
+            .execute()
         )
-        return [self._to_node(row) for row in res.data]
+        return [self._to_filter_row(row) for row in res.data]
 
     def count_nodes(self, org_id: str) -> int:
         res = (
@@ -199,6 +239,13 @@ class SupabaseRepository(BaseRepository):
             .execute()
         )
         return res.count or len(res.data)
+
+    def fetch_content(self, node_ids: Iterable[str]) -> Dict[str, KnowledgeNode]:
+        ids = list(node_ids)
+        if not ids:
+            return {}
+        res = self._client.table("knowledge_nodes").select("*").in_("id", ids).execute()
+        return {row["id"]: self._to_node(row) for row in res.data}
 
     def list_edges(self) -> List[Edge]:
         res = self._client.table("edges").select("*").execute()
