@@ -38,6 +38,7 @@ class TraversalResult:
     node_distance: Dict[str, int] = field(default_factory=dict)
     visit_order: List[str] = field(default_factory=list)
     multi_parent_levels: List[str] = field(default_factory=list)
+    revisits_prevented: int = 0
 
     @property
     def max_distance(self) -> int:
@@ -50,6 +51,7 @@ class TraversalResult:
             "visit_order": self.visit_order,
             "reachable_node_count": len(self.node_ids),
             "multi_parent_levels": self.multi_parent_levels,
+            "revisits_prevented": self.revisits_prevented,
             "max_distance": self.max_distance,
         }
 
@@ -72,6 +74,7 @@ def traverse(
     visited: Set[str] = {entry.level.id}
     visit_order: List[str] = []
     multi_parent: List[str] = []
+    revisits_prevented = 0
 
     queue: deque = deque([(entry.level.id, 0)])
     while queue:
@@ -92,6 +95,9 @@ def traverse(
 
         for neighbour in neighbours:
             if neighbour in visited:
+                # The multi-parent / diamond case: already queued from another
+                # path. Counting these makes the visited set visible in the demo.
+                revisits_prevented += 1
                 continue
             visited.add(neighbour)
             distance[neighbour] = dist + 1
@@ -111,4 +117,5 @@ def traverse(
         node_distance=node_distance,
         visit_order=visit_order,
         multi_parent_levels=multi_parent,
+        revisits_prevented=revisits_prevented,
     )
