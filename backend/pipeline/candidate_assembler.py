@@ -12,6 +12,11 @@ from typing import Dict, List, Sequence
 from backend.models.candidate_set import CandidateNode, compression_hint_for
 from backend.models.node import KnowledgeNode, NodeFilterRow
 
+# Ranking: importance first, then proximity, then a stable id tiebreak.
+def _sort_key(candidate: CandidateNode):
+    return (-candidate.importance, candidate.distance_from_entry, candidate.id)
+
+
 def assemble(
     survivors: Sequence[NodeFilterRow],
     node_distance: Dict[str, int],
@@ -42,4 +47,5 @@ def assemble(
             )
         )
 
+    candidates.sort(key=_sort_key)
     return candidates[:max_candidates]
