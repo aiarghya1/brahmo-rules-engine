@@ -42,7 +42,14 @@ def repo():
 
 @app.get("/api/health")
 def health() -> Dict[str, Any]:
-    return {"status": "ok", "llm_calls": 0}
+    source = repo()
+    return {
+        "status": "ok",
+        "backend": source.backend_name,
+        "nodes": source.count_nodes("supra"),
+        "users": len(source.list_users()),
+        "llm_calls": 0,
+    }
 
 
 @app.get("/api/users")
