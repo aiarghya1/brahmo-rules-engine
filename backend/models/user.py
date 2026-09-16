@@ -17,6 +17,10 @@ class Organization:
     config: Dict[str, Any] = field(default_factory=dict)
 
     @property
+    def derivability_threshold(self) -> float:
+        return float(self.config.get("derivability_threshold", 0.7))
+
+    @property
     def token_budget(self) -> int:
         return int(self.config.get("token_budget", 4000))
 

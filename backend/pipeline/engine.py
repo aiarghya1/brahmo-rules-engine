@@ -74,7 +74,7 @@ def run_pipeline(
             reachable_rows,
             permissions,
             org_id=user.org_id,
-            derivability_threshold=0.7,  # TODO: read from org config
+            derivability_threshold=org.derivability_threshold,
             now=now,
         ),
     )
