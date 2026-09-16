@@ -115,3 +115,28 @@ def pipeline(user_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.get("/api/compare")
+def compare(users: str = Query(..., description="comma-separated user ids")) -> Dict[str, Any]:
+    """Side-by-side runs, plus which nodes are shared and which are exclusive."""
+    user_ids = [u.strip() for u in users.split(",") if u.strip()]
+    if not 2 <= len(user_ids) <= 4:
+        raise HTTPException(status_code=400, detail="compare 2 to 4 users")
+
+    results = []
+    for user_id in user_ids:
+        try:
+            results.append(run_pipeline(repo(), user_id))
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    id_sets = {r["user"]: {c["id"] for c in r["candidate_set"]} for r in results}
+    shared = set.intersection(*id_sets.values()) if id_sets else set()
+    exclusive = {
+        uid: sorted(ids - set.union(*[other for k, other in id_sets.items() if k != uid]))
+        for uid, ids in id_sets.items()
+    }
+    return {
+        "results": results,
+        "shared_node_ids": sorted(shared),
+        "exclusive_node_ids": exclusive,
+    }
