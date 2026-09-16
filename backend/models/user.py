@@ -21,6 +21,10 @@ class Organization:
         return float(self.config.get("derivability_threshold", 0.7))
 
     @property
+    def max_candidate_set(self) -> int:
+        return int(self.config.get("max_candidate_set", 50))
+
+    @property
     def token_budget(self) -> int:
         return int(self.config.get("token_budget", 4000))
 
