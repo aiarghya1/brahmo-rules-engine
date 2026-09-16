@@ -4,6 +4,34 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class CandidateNode:
+    id: str
+    type: str
+    title: str
+    content: str
+    importance: float
+    zone: int
+    hierarchy_level: int
+    hierarchy_level_id: str
+    department: Optional[str]
+    distance_from_entry: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "content": self.content,
+            "importance": self.importance,
+            "zone": self.zone,
+            "hierarchy_level": self.hierarchy_level,
+            "hierarchy_level_id": self.hierarchy_level_id,
+            "department": self.department,
+            "distance_from_entry": self.distance_from_entry,
+        }
+
+
+@dataclass
 class Exclusion:
     """Why a node that entered the pipeline did not make the candidate set.
 
