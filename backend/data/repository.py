@@ -258,3 +258,19 @@ class SupabaseRepository(BaseRepository):
             )
             for row in res.data
         ]
+
+
+def default_seed_path() -> str:
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(here, "supabase", "seed.sql")
+
+
+def get_repository() -> BaseRepository:
+    """Supabase when credentials are present, local seed otherwise."""
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    key = os.environ.get("SUPABASE_KEY", "").strip() or os.environ.get(
+        "SUPABASE_ANON_KEY", ""
+    ).strip()
+    if url and key and not url.startswith("your_"):
+        return SupabaseRepository(url, key)
+    return LocalSeedRepository(os.environ.get("SEED_PATH", default_seed_path()))
