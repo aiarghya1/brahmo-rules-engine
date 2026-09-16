@@ -18,7 +18,7 @@ UI can show that this is a WHERE clause, not application-side post-filtering.
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, FrozenSet, List, Optional, Sequence, Tuple
 
 from backend.models.candidate_set import Exclusion, StageResult
 from backend.models.node import NodeFilterRow
@@ -75,11 +75,17 @@ def _check_compliance(permissions: CompiledPermissions) -> Tuple[str, str, Check
     return ("compliance", sql, check)
 
 
-def _check_permission(permissions: CompiledPermissions) -> Tuple[str, str, CheckFn]:
+def _check_permission(
+    permissions: CompiledPermissions, inherited_level_ids: FrozenSet[str]
+) -> Tuple[str, str, CheckFn]:
     def check(node: NodeFilterRow) -> Optional[str]:
         if permissions.can_read(node.hierarchy_level):
             return None
         if permissions.zone2_bypasses_ceiling and node.zone == ZONE_GLOBAL:
+            return None
+        # Optional policy (off by default, see architecture.md "Check 3"):
+        # treat own-department ancestors of the entry point as inherited.
+        if node.hierarchy_level_id in inherited_level_ids:
             return None
         return "level L{} is above ceiling L{}".format(
             node.hierarchy_level, permissions.ceiling_level
@@ -88,6 +94,8 @@ def _check_permission(permissions: CompiledPermissions) -> Tuple[str, str, Check
     sql = "AND (hierarchy_level >= {}".format(permissions.ceiling_level)
     if permissions.zone2_bypasses_ceiling:
         sql += " OR zone = 2"
+    if inherited_level_ids:
+        sql += " OR hierarchy_level_id = ANY(:inherited_dept_path)"
     sql += ")"
     return ("permission", sql, check)
 
@@ -138,13 +146,14 @@ def run_five_checks(
     org_id: str,
     derivability_threshold: float,
     now: Optional[datetime] = None,
+    inherited_level_ids: Optional[FrozenSet[str]] = None,
 ) -> FilterOutcome:
     now = now or datetime.now(timezone.utc)
 
     checks = [
         _check_isolation(org_id),
         _check_compliance(permissions),
-        _check_permission(permissions),
+        _check_permission(permissions, inherited_level_ids or frozenset()),
         _check_temporal(now),
         _check_derivability(derivability_threshold),
     ]

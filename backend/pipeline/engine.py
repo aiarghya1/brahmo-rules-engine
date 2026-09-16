@@ -6,6 +6,7 @@ Every stage is timed; the timings and the funnel counts are part of the API
 response because "you can see the filtering happen" is a requirement, not a
 debugging nicety.
 """
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -68,6 +69,19 @@ def run_pipeline(
     injection = clock.time("zone2_inject_ms", lambda: inject_zone2(traversal, all_nodes))
 
     reachable_rows = [n for n in all_nodes if n.id in injection.node_ids]
+
+    # Optional Check-3 relaxation. Default OFF — see docs/architecture.md.
+    # ON: own-department levels on the traversal path are treated as inherited
+    # authority, so a ward nurse also reads her department's clinical protocols.
+    inherited_level_ids = frozenset()
+    if os.environ.get("PERMISSION_INHERIT_DEPT_PATH", "0") == "1":
+        inherited_level_ids = frozenset(
+            lvl.id
+            for lvl in levels
+            if lvl.id in traversal.level_distance and lvl.department == user.department
+        )
+
+    # -- Stage 4: the five checks -----------------------------------------
     outcome = clock.time(
         "five_checks_ms",
         lambda: run_five_checks(
@@ -76,6 +90,7 @@ def run_pipeline(
             org_id=user.org_id,
             derivability_threshold=org.derivability_threshold,
             now=now,
+            inherited_level_ids=inherited_level_ids,
         ),
     )
 
@@ -130,5 +145,10 @@ def run_pipeline(
         "stages": [stage.to_dict() for stage in outcome.stages],
         "excluded": excluded_all,
         "llm_calls": 0,
+        "policy": {
+            "zone2_bypasses_ceiling": permissions.zone2_bypasses_ceiling,
+            "inherit_dept_path": bool(inherited_level_ids),
+            "derivability_threshold": org.derivability_threshold,
+        },
         "candidate_set": [c.to_dict() for c in candidates],
     }
