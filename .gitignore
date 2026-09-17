@@ -17,3 +17,7 @@ npm-debug.log*
 
 # OS
 .DS_Store
+.vercel
+.env*
+.coverage
+test-results/

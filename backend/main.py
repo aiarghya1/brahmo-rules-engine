@@ -5,13 +5,30 @@ pipeline is re-run on every request, never cached and never hardcoded, so
 switching users in the UI genuinely re-executes BFS + the five checks.
 """
 import os
+import sys
+import types
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
+
+# Support running both from workspace root and when deployed standalone on Vercel
+_current_dir = Path(__file__).resolve().parent
+if "backend" not in sys.modules:
+    if (_current_dir.parent / "backend").exists():
+        if str(_current_dir.parent) not in sys.path:
+            sys.path.insert(0, str(_current_dir.parent))
+    else:
+        _pkg = types.ModuleType("backend")
+        _pkg.__path__ = [str(_current_dir)]
+        sys.modules["backend"] = _pkg
+        if str(_current_dir) not in sys.path:
+            sys.path.insert(0, str(_current_dir))
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.data.repository import get_repository  # noqa: E402
 from backend.pipeline.engine import run_pipeline  # noqa: E402
@@ -22,14 +39,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Any localhost port during development; set CORS_ORIGINS to pin it down.
+# Any localhost or deployed origin; set CORS_ORIGINS to restrict.
 _explicit_origins = [o for o in os.environ.get("CORS_ORIGINS", "").split(",") if o]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_explicit_origins,
-    allow_origin_regex=None if _explicit_origins else r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=_explicit_origins if _explicit_origins else ["*"],
+    allow_origin_regex=None if _explicit_origins else r"https?://.*",
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -41,6 +58,22 @@ def repo():
     if _repo is None:
         _repo = get_repository()
     return _repo
+
+
+@app.get("/")
+def root() -> Dict[str, Any]:
+    return {
+        "app": "BRAHMO Rules Engine API",
+        "status": "online",
+        "endpoints": {
+            "health": "/api/health",
+            "users": "/api/users",
+            "graph": "/api/graph",
+            "pipeline": "/api/pipeline/{user_id}",
+            "compare": "/api/compare?users=1,2",
+            "docs": "/docs",
+        },
+    }
 
 
 @app.get("/api/health")

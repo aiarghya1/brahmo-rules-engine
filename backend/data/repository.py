@@ -261,8 +261,16 @@ class SupabaseRepository(BaseRepository):
 
 
 def default_seed_path() -> str:
+    if os.environ.get("SEED_PATH"):
+        return os.environ["SEED_PATH"]
     here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(here, "supabase", "seed.sql")
+    repo_seed = os.path.join(here, "supabase", "seed.sql")
+    if os.path.exists(repo_seed):
+        return repo_seed
+    backend_seed = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed.sql")
+    if os.path.exists(backend_seed):
+        return backend_seed
+    return repo_seed
 
 
 def get_repository() -> BaseRepository:
